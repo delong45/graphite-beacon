@@ -5,6 +5,7 @@ from tornado import ioloop, httpclient as hc, gen, log, escape
 from . import _compat as _
 from .graphite import GraphiteRecord
 from .utils import (
+    COMPARISON,
     HISTORICAL,
     LOGICAL_OPERATORS,
     convert_to_format,
@@ -205,7 +206,12 @@ class BaseAlert(_.with_metaclass(AlertFabric)):
                 return None
             rvalue = sum(history) / float(len(history))
 
+        if rvalue == COMPARISON:
+            LOGGER.info("COMPARISON TEST [%s]", self.compare_size)
+            rvalue = 100 
+
         rvalue = expr['mod'](rvalue)
+        LOGGER.info("rvalue [%s]", rvalue)
         return rvalue
 
     def notify(self, level, value, target=None, ntype=None, rule=None):
@@ -241,6 +247,7 @@ class GraphiteAlert(BaseAlert):
         self.default_nan_value = options.get(
             'default_nan_value', self.reactor.options['default_nan_value'])
         self.ignore_nan = options.get('ignore_nan', self.reactor.options['ignore_nan'])
+        self.compare_size = options.get('compare_size', self.reactor.options['compare_size'])
         assert self.method in METHODS, "Method is invalid"
 
         self.auth_username = self.reactor.options.get('auth_username')
