@@ -207,11 +207,9 @@ class BaseAlert(_.with_metaclass(AlertFabric)):
             rvalue = sum(history) / float(len(history))
 
         if rvalue == COMPARISON:
-            LOGGER.info("COMPARISON TEST [%s]", self.compare_size)
-            rvalue = 100 
+            rvalue = self.get_graph_comparison()
 
         rvalue = expr['mod'](rvalue)
-        LOGGER.info("rvalue [%s]", rvalue)
         return rvalue
 
     def notify(self, level, value, target=None, ntype=None, rule=None):
@@ -230,6 +228,10 @@ class BaseAlert(_.with_metaclass(AlertFabric)):
 
     def load(self):
         """Load from remote."""
+        raise NotImplementedError()
+
+    def get_graph_comparison(self):
+        """Only from graphite."""
         raise NotImplementedError()
 
 
@@ -299,6 +301,30 @@ class GraphiteAlert(BaseAlert):
         if raw_data:
             url = "{0}&rawData=true".format(url)
         return url
+
+    def get_graph_comparison(self):
+        time_shift = self.compare_size
+        if time_shift[0] != '-':
+            time_shift = '-' + time_shift
+
+        query = 'timeShift(' + self.query + ', "' + time_shift + '")'
+        url = self._graphite_url(
+            query, graphite_url=self.reactor.options.get('graphite_url'), raw_data=True)
+
+        http_client = hc.HTTPClient()
+        try:
+            response = http_client.fetch(url, auth_username=self.auth_username,
+                                         auth_password=self.auth_password,
+                                         request_timeout=self.request_timeout,
+                                         connect_timeout=self.connect_timeout)
+            record = GraphiteRecord(response.body.decode('utf-8'), self.default_nan_value, self.ignore_nan)
+            value = getattr(record, self.method)
+            LOGGER.debug("%s [%s]: %s", self.name, record.target, value)
+            return value
+        except Exception as e:
+            LOGGER.error('%s', str(e))
+            self.notify('warning', 'No data to compare', target='comparison', ntype='common')
+            return 0
 
 
 class URLAlert(BaseAlert):
