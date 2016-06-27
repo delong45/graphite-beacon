@@ -169,16 +169,6 @@ def test_multiexpressions(reactor):
 
     assert list(alert.history['metric1']) == [85, 65, 68, 75]
 
-def test_comparison(reactor):
-    from graphite_beacon.alerts import BaseAlert
-
-    alert = BaseAlert.get(
-            reactor, name="Test", query="*", source="graphite", rules=["warning: > comparison * 1.15 AND > 80"])
-    reactor.alerts = set(alert)
-
-    assert alert.get_graph_comparison == 0
-
-
 def test_invalid_handler(reactor):
     reactor.reinit(critical_handlers=['log', 'unknown'])
     assert len(reactor.handlers['critical']) == 1
