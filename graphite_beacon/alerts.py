@@ -322,8 +322,7 @@ class GraphiteAlert(BaseAlert):
             LOGGER.debug("%s [%s]: %s", self.name, record.target, value)
             return value
         except Exception as e:
-            LOGGER.error('%s', str(e))
-            self.notify('warning', 'No data to compare', target='comparison', ntype='common')
+            LOGGER.error('No data to compare: %s', str(e))
             return 0
 
 

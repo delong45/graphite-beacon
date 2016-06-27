@@ -169,6 +169,15 @@ def test_multiexpressions(reactor):
 
     assert list(alert.history['metric1']) == [85, 65, 68, 75]
 
+def test_comparison(reactor):
+    from graphite_beacon.alerts import BaseAlert
+
+    alert = BaseAlert.get(
+            reactor, name="Test", query="*", source="graphite", rules=["warning: > comparison * 1.15 AND > 80"])
+    reactor.alerts = set(alert)
+
+    assert alert.get_graph_comparison == 0
+
 
 def test_invalid_handler(reactor):
     reactor.reinit(critical_handlers=['log', 'unknown'])
@@ -262,6 +271,16 @@ def test_parse_rule():
         'exprs': [{'op': op.ge, 'value': 'historical', 'mod': IDENTITY},
                   op.and_,
                   {'op': op.gt, 'value': 25, 'mod': IDENTITY}]}
+
+    assert parse_rule('warning: >= comparison') == {
+        'level': 'warning', 'raw': 'warning: >= comparison',
+        'exprs': [{'op': op.ge, 'value': 'comparsion', 'mod': IDENTITY}]}
+
+    assert parse_rule('warning: >= comparison AND > 30') == {
+        'level': 'warning', 'raw': 'warning: >= comparison AND > 30',
+        'exprs': [{'op': op.ge, 'value': 'comparison', 'mod': IDENTITY},
+                  op.and_,
+                  {'op': op.gt, 'value': 30, 'mod': IDENTITY}]}
 
     rule = parse_rule('warning: >= historical * 1.2')
     assert rule['exprs'][0]['mod']
