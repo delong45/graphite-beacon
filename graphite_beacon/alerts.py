@@ -14,6 +14,7 @@ from .utils import (
     parse_rule,
 )
 import math
+import time
 from collections import deque, defaultdict
 from itertools import islice
 
@@ -81,6 +82,7 @@ class BaseAlert(_.with_metaclass(AlertFabric)):
         self.waiting = False
         self.state = {None: "normal", "waiting": "normal", "loading": "normal"}
         self.history = defaultdict(lambda: sliceable_deque([], self.history_size))
+        self.comparing = {}
 
         LOGGER.info("Alert '%s': has inited", self)
 
@@ -207,7 +209,16 @@ class BaseAlert(_.with_metaclass(AlertFabric)):
             rvalue = sum(history) / float(len(history))
 
         if rvalue == COMPARISON:
-            rvalue = self.get_graph_comparison()
+            current_time = int(time.time())
+            if self.comparing.has_key(target) and self.comparing[target]['time'] == current_time:
+                rvalue = self.comparing[target]['value']
+            else:
+                rvalue = self.get_graph_comparison()
+                if rvalue != -1:
+                    if not self.comparing.has_key(target):
+                        self.comparing[target] = {}
+                    self.comparing[target]['value'] = rvalue
+                    self.comparing[target]['time'] = current_time
 
         rvalue = expr['mod'](rvalue)
         return rvalue
@@ -283,6 +294,7 @@ class GraphiteAlert(BaseAlert):
                 self.check(data)
                 self.notify('normal', 'Metrics are loaded', target='loading', ntype='common')
             except Exception as e:
+                LOGGER.debug("ee: %s", str(e))
                 self.notify(
                     self.loading_error, 'Loading error: %s' % e, target='loading', ntype='common')
             self.waiting = False
@@ -323,7 +335,7 @@ class GraphiteAlert(BaseAlert):
             return value
         except Exception as e:
             LOGGER.error('No data to compare: %s', str(e))
-            return 0
+            return -1
 
 
 class URLAlert(BaseAlert):
